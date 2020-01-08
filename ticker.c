@@ -98,6 +98,7 @@ static void isr_int(void) __interrupt(0)
             }
             else {
                 PORTC = 0x00;
+                RA5 = 0;
             }
         }
 
