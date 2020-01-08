@@ -39,6 +39,14 @@ volatile uint8_t TIMER_START = 75; // 256 - 181
 
 // the current position of the arm
 volatile uint8_t scancol = 0;
+volatile uint8_t pos = XWIDTH;
+volatile uint8_t index = 0;
+
+uint8_t A[6] = {124,18,17,18,124,0};
+uint8_t M[6] = {127,2,12,2,127,0};
+uint8_t Y[6] = {7,8,120,8,7,0};
+uint8_t HART[6] = {12,30,60,30,12,0};
+
 
 /*
 void delay(unsigned long ms)
@@ -58,13 +66,18 @@ static void isr_int(void) __interrupt(0)
     if (INTE && INTF) // External Interrupt
     {
         // we crossed the 0 position
-        if (scancol < XWIDTH && TIMER_START > 0)
+        if (scancol < XWIDTH && TIMER_START < 255)
             TIMER_START++;
-        else if (scancol > XWIDTH && TIMER_START < 255)
+        else if (scancol > XWIDTH && TIMER_START > 0)
             TIMER_START--;
 
         scancol = 0;
-        PORTC = 0x3f;
+        if (pos == 0)
+            pos = XWIDTH;
+        else
+            pos--;
+
+        index = 0;
 
         // reinitialize timer
         TMR0 = TIMER_START; // writing to TMR0 clears the prescaler counter
@@ -75,16 +88,18 @@ static void isr_int(void) __interrupt(0)
     else if (T0IE && T0IF) // Timer Overflow
     {
         // turn off current led & display next led
-        scancol++;
+        if (scancol < 255) {
+            scancol++;
 
-        if (scancol == 34)
-            PORTC = 0x3f;
-        else if (scancol == 69)
-            PORTC = 0x3f;
-        else if (scancol == 103)
-            PORTC = 0x3f;
-        else
-            PORTC = 0x00;
+            if (scancol > pos && scancol <= pos + 24) {
+                PORTC = A[index] & 0b00111111;
+                RA5 = (A[index] >> 6) & 1;
+                index++;
+            }
+            else {
+                PORTC = 0x00;
+            }
+        }
 
         // reinitialize timer
         TMR0 = TIMER_START; // writing to TMR0 clears the prescaler counter
@@ -130,14 +145,14 @@ void main(void)
     GIE = 1;  // enable global interrupts
 
     forever {
-        if (scancol < 69 && !isOn) {
+      /*  if (scancol < 69 && !isOn) {
             RA5 = 1;
             isOn = true;
         }
         else if (scancol >=69 && isOn) {
             RA5 = 0;
             isOn = false;
-        }
+        }*/
     }
 }
 
