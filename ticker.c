@@ -77,10 +77,10 @@ volatile uint8_t pos = XWIDTH - 1;
 volatile uint8_t index = 0;
 volatile uint8_t subindex = 0;
 
-#define MAX_MESSAGE 10
-#define MAX_MESSAGE_LENGTH 60
+#define MESSAGE_LENGTH 10
+#define MESSAGE_COL_LENGTH_ 60
 // FONTYS ICT
-const uint8_t message[MAX_MESSAGE] = {5, 14, 13, 19, 14, 18, 36, 8, 2, 19};
+const uint8_t message[MESSAGE_LENGTH] = { 5, 14, 13, 19, 24, 18, 36, 8, 2, 19 };
 //uint8_t message[3];
 
 // use my own encoding. ASCII wastes too much space
@@ -230,7 +230,7 @@ static void showled(void) {
     }
 }
 
-static __interrupt() void isr_int(void) {
+static  void isr_int(void) __interrupt(0) {
     // reinitialize timer
     TMR0 = TIMER_START; // writing to TMR0 clears the prescaler counter
 
