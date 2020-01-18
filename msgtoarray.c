@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
     size--;
 
     printf("#define MESSAGE_LENGTH %d\n",size);
-    printf("#define MESSAGE_COL_LENGTH_ %d\n",size*6);
+    printf("#define MESSAGE_COL_LENGTH %d\n",size*6);
     printf("// ");
     for (int i=start;i<argc;i++)
         printf("%s ",argv[i]);

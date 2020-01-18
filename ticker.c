@@ -49,6 +49,7 @@ static __code uint16_t __at(_CONFIG) configword1 =
 //#include <xc.h>
 
 
+
 // calculate maximum display resolution
 
 // led size = 5mm
@@ -64,64 +65,71 @@ static __code uint16_t __at(_CONFIG) configword1 =
 #define PIXEL_ON_TIME 723
 //#define PIXEL_ON_TIME 1449 // 1.449ms
 
+// @ 10 rotations / second =>
+// speed of the moving arm at the edges
+// 691 * 10  = 6911 mm/s = 6.91m/s = 24.88km/h
+
 // timer inc occurs at 250,000/s
 // to overflow 1382/s we count 250,000/1382 ticks = 180.858 = 181
 // round up. so overflow happens a bit faster, so at the end we don't overlap
-// the led at pos 0, but rather have a small gap
+// the led at startpos 0, but rather have a small gap
 // timer overflows at 256 so start is 256 - 181 = 75
 volatile uint8_t TIMER_START = 75; // 256 - 181
 
 // the current position of the arm
 volatile uint8_t scancol = 0;
-volatile uint8_t pos = XWIDTH - 1;
+volatile uint8_t startpos = XWIDTH - 1;
 volatile uint8_t index = 0;
 volatile uint8_t subindex = 0;
 
+#define GLYPH_WIDTH 6
+
 #define MESSAGE_LENGTH 10
-#define MESSAGE_COL_LENGTH_ 60
+#define MESSAGE_COL_LENGTH 60
 // FONTYS ICT
 const uint8_t message[MESSAGE_LENGTH] = { 5, 14, 13, 19, 24, 18, 36, 8, 2, 19 };
 //uint8_t message[3];
 
 // use my own encoding. ASCII wastes too much space
-const uint8_t letters[38][6] = {
-    {124, 18, 17, 18, 124, 0}, // A // 0
-    {54, 73, 73, 127, 65, 0}, // B
-    {34, 65, 65, 34, 28, 0}, // C
-    {28, 34, 65, 127, 65, 0}, // D
+const uint8_t letters[38][GLYPH_WIDTH] = {
+    {124, 18, 17, 18, 124, 0}, // A  // 0
+    {65, 127, 73, 73, 54, 0}, // B
+    {28, 34, 65, 65, 34, 0}, // C
+    {65, 127, 65, 34, 28, 0}, // D
     {127, 73, 73, 73, 65, 0}, // E
-    {1, 9, 9, 9, 127, 0}, // F   // 5
-    {58, 73, 73, 65, 62, 0}, // G
+    {127, 9, 9, 9, 1, 0}, // F  // 5
+    {62, 65, 73, 73, 58, 0}, // G
     {127, 8, 8, 8, 127, 0}, // H
     {0, 65, 127, 65, 0, 0}, // I
-    {1, 63, 65, 64, 48, 0}, // J
-    {65, 34, 20, 8, 127, 0}, // K // 10
-    {64, 64, 64, 64, 127, 0}, // L
+    {48, 64, 65, 63, 1, 0}, // J
+    {127, 8, 20, 34, 65, 0}, // K   // 10
+    {127, 64, 64, 64, 64, 0}, // L
     {127, 2, 12, 2, 127, 0}, // M
     {127, 6, 8, 48, 127, 0}, // N
     {62, 65, 65, 65, 62, 0}, // O
-    {6, 9, 9, 9, 127, 0}, // P  // 15
-    {94, 33, 81, 65, 62, 0}, // Q
-    {70, 41, 25, 9, 127, 0}, // R
-    {50, 73, 73, 73, 38, 0}, // S
+    {127, 9, 9, 9, 6, 0}, // P     // 15
+    {62, 65, 81, 33, 94, 0}, // Q
+    {127, 9, 25, 41, 70, 0}, // R
+    {38, 73, 73, 73, 50, 0}, // S
     {1, 1, 127, 1, 1, 0}, // T
     {63, 64, 64, 64, 63, 0}, // U  // 20
     {15, 48, 64, 48, 15, 0}, // V
     {127, 32, 24, 32, 127, 0}, // W
     {99, 20, 8, 20, 99, 0}, // X
     {7, 8, 120, 8, 7, 0}, // Y
-    {67, 69, 73, 81, 97, 0}, // Z  // 25
+    {97, 81, 73, 69, 67, 0}, // Z   // 25
 
-    {62,81,73,69,62,0}, // 0
-    {68,66,127,64,64,0}, // 1
-    {98,81,73,73,70,0}, // 2
-    {34,65,73,73,54,0}, // 3
-    {24,20,18,127,16,0}, // 4  // 30
-    {71,69,69,41,17,0}, // 5
-    {60,74,73,73,48,0}, // 6
-    {3,1,121,5,3,0}, // 7
-    {54,73,73,73,54,0}, // 8
-    {6,73,73,41,30,0}, // 9  // 35
+
+    {62, 81, 73, 69, 62, 0}, // 0
+    {68, 66, 127, 64, 64, 0}, // 1
+    {98, 81, 73, 73, 70, 0}, // 2
+    {34, 65, 73, 73, 54, 0}, // 3
+    {24, 20, 18, 127, 16, 0}, // 4  // 30
+    {71, 69, 69, 41, 17, 0}, // 5
+    {60, 74, 73, 73, 48, 0}, // 6
+    {3, 1, 121, 5, 3, 0}, // 7
+    {54, 73, 73, 73, 54, 0}, // 8
+    {6, 73, 73, 41, 30, 0}, // 9  // 35
 
     {0, 0, 0, 0, 0, 0,}, // space
     {12, 30, 60, 30, 12, 0}, // ❤︎
@@ -182,10 +190,11 @@ void delay(unsigned long ms)
         for (i=0; i < 330; i++)
             ;
 }*/
+
 /*
 static void showled2(void) {
-     if (scancol >= pos && scancol < pos + 18) {
-        //if (scancol == pos + index * 6 + subindex) {
+     if (scancol >= startpos && scancol < startpos + 18) {
+        //if (scancol == startpos + index * 6 + subindex) {
         uint8_t map = message[index];
         PORTC = letters[map][subindex] & 0b00111111;
         RA5 = (letters[map][subindex] >> 6) & 1;
@@ -201,27 +210,27 @@ static void showled2(void) {
     }
 }*/
 static void showled(void) {
-    // if the arm is at start the position to show a line
-    if (scancol == pos) {
+
+    if (scancol == startpos)
         index = subindex = 0;
+
+    uint8_t pos = startpos + index * GLYPH_WIDTH + subindex;
+    if (pos >= XWIDTH) {
+        pos -= XWIDTH;
     }
-    uint8_t pos2 = pos + index * 6 + subindex;
-    if (pos2 >= XWIDTH) {
-        pos2 -= XWIDTH;
-        pos2-=3;
-    }
-    // TODO: calculate exactly what this should be
-    if (scancol == pos2) {
-    //if (scancol >= pos && scancol < pos + MAX_MESSAGE_LENGTH) {
+
+    if (scancol == pos) {
         uint8_t map = message[index];
         PORTC = letters[map][subindex] & 0b00111111;
-        RA5 = (letters[map][subindex] >> 6) & 1;
+        RA5 = (letters[map][subindex] >> GLYPH_WIDTH) & 1;
         subindex++;
         if (subindex == 6) {
             subindex = 0;
             index++;
-            if (index == MAX_MESSAGE)
+            if (index == MESSAGE_LENGTH) {
                 index = 0;
+                startpos--;
+            }
         }
     } else {
         // show nothing
@@ -230,7 +239,7 @@ static void showled(void) {
     }
 }
 
-static  void isr_int(void) __interrupt(0) {
+static void isr_int(void) __interrupt(0) {
     // reinitialize timer
     TMR0 = TIMER_START; // writing to TMR0 clears the prescaler counter
 
@@ -245,24 +254,25 @@ static  void isr_int(void) __interrupt(0) {
             TIMER_START--;
 
         // '0' == 26
-      /*  message[2] = 26 + scancol % 10;
-        scancol /= 10;
-        message[1] = 26 + scancol % 10;
-        scancol /= 10;
-        message[0] = 26 + scancol;*/
+        /*  message[2] = 26 + scancol % 10;
+          scancol /= 10;
+          message[1] = 26 + scancol % 10;
+          scancol /= 10;
+          message[0] = 26 + scancol;*/
+        // calculate the start index + subindex
 
-        if (pos == 0) {
-            pos = XWIDTH;
+        if (startpos == 0) {
+            startpos = XWIDTH;
         }
-
-        pos--;
 
         scancol = 0;
 
         INTF = 0; // clear interrupt flag
         T0IF = 0; // also clear timer flag in case it occurred
-    } else if (T0IE && T0IF) // Timer Overflow
+    }
+    else if (T0IE && T0IF) // Timer Overflow
     {
+
         // keep track of where the arm is
         if (scancol < 255) {
 
@@ -271,12 +281,13 @@ static  void isr_int(void) __interrupt(0) {
             scancol++;
         }
 
-        if (scancol > XWIDTH) {
-            PORTC = 0x3f;
+    /*   enable to show under or overruns
+     *  if (scancol > XWIDTH) {
+            PORTC = 0x01;
         }
-        if (pos > XWIDTH) {
+        if (startpos > XWIDTH) {
             RA5 = 1;
-        }
+        }*/
         // reinitialize timer
         //        TMR0 = TIMER_START; // writing to TMR0 clears the prescaler counter
 
@@ -324,5 +335,6 @@ void main(void) {
         // everything happens in the interrupt handler
     }
 }
+
 
 
