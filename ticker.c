@@ -49,6 +49,7 @@ static __code uint16_t __at(_CONFIG) configword1 =
 //#include <xc.h>
 
 
+
 // calculate maximum display resolution
 
 // led size = 5mm
@@ -167,34 +168,35 @@ const uint8_t letters[][GLYPH_WIDTH] = {
   {3, 4, 8, 16, 96, 0}, // /
 
   {0, 0, 20, 0, 0, 0}, // :
-
-  {0, 0, 52, 64, 0, 0}, // ;
-  {65, 99, 54, 28, 8, 0}, // <
-  {20, 20, 20, 20, 20, 0}, // =  // 55
-  {8, 28, 54, 99, 65, 0}, // >
-  {6, 9, 81, 1, 6, 0}, // ?
-  {62, 65, 121, 73, 50, 0}, // @
-
-  {0, 65, 65, 127, 0, 0}, // [
-  {96, 16, 8, 4, 3, 0}, // \   // 60
-  {0, 127, 65, 65, 0, 0}, // ]
-  {4, 2, 1, 2, 4, 0}, // ^
-  {64, 64, 64, 64, 64, 0}, // _
-  {0, 4, 2, 1, 0, 0}, // `
-  {65, 65, 54, 8, 0, 0}, // {  // 65
-  {0, 0, 119, 0, 0, 0}, // |
-  {0, 8, 54, 65, 65, 0}, // }
-  {2, 4, 2, 1, 2, 0}, // ~
   /*
-      {58,85,85,85,26,0}, // ê  // 70
-      {58,69,69,69,58,0}, // ô
-      {122,85,85,85,34,0}, // â
-      {121,86,86,85,32,0}, // ă
-      {65,85,85,62,20,0}, // €
-      {6,9,9,6,0,0}, // °    // 75
-      {60,106,94,106,60,0}, // ☺
-      {60,90,110,90,60,0}, // ☹
-      {62,65,85,73,62,0}, // ©  //78
+    {0, 0, 52, 64, 0, 0}, // ;
+    {65, 99, 54, 28, 8, 0}, // <
+    {20, 20, 20, 20, 20, 0}, // =  // 55
+    {8, 28, 54, 99, 65, 0}, // >
+    {6, 9, 81, 1, 6, 0}, // ?
+    {62, 65, 121, 73, 50, 0}, // @
+
+
+     {0, 65, 65, 127, 0, 0}, // [
+    {96, 16, 8, 4, 3, 0}, // \   // 60
+    {0, 127, 65, 65, 0, 0}, // ]
+    {4, 2, 1, 2, 4, 0}, // ^
+    {64, 64, 64, 64, 64, 0}, // _
+    {0, 4, 2, 1, 0, 0}, // `
+    {65, 65, 54, 8, 0, 0}, // {  // 65
+    {0, 0, 119, 0, 0, 0}, // |
+    {0, 8, 54, 65, 65, 0}, // }
+    {2, 4, 2, 1, 2, 0}, // ~
+
+        {58,85,85,85,26,0}, // ê  // 70
+        {58,69,69,69,58,0}, // ô
+        {122,85,85,85,34,0}, // â
+        {121,86,86,85,32,0}, // ă
+        {65,85,85,62,20,0}, // €
+        {6,9,9,6,0,0}, // °    // 75
+        {60,106,94,106,60,0}, // ☺
+        {60,90,110,90,60,0}, // ☹
+        {62,65,85,73,62,0}, // ©  //78
    */
 };
 
@@ -282,7 +284,7 @@ static void show_rotating_led(void)
   }
 }
 
-static void isr_int(void) __interrupt(0)
+static __interrupt() void isr_int(void)
 {
   // reinitialize timer
   TMR0 = TIMER_START; // writing to TMR0 clears the prescaler counter
@@ -292,6 +294,8 @@ static void isr_int(void) __interrupt(0)
   {
 
     // we crossed the 0 position
+
+    // calibrate the timer to show exactly XWIDTH leds
     if (scancol < XWIDTH && TIMER_START < 255)
       TIMER_START++;
     else if (scancol > XWIDTH && TIMER_START > 0)
@@ -307,7 +311,7 @@ static void isr_int(void) __interrupt(0)
   {
 
     // keep track of where the arm is
-    if (scancol < 255) {
+    if (scancol < 0xff) {
 
       //show_rotating_led();
       show_banner_led();
@@ -322,8 +326,6 @@ static void isr_int(void) __interrupt(0)
 
 void main(void)
 {
-  bool isOn = false;
-
   // set all port values to LOW so leds are off
   PORTA = 0x00;
   PORTC = 0x00;
@@ -332,20 +334,27 @@ void main(void)
   ANSEL = 0;
 
   // set data direction
-  TRISA = 0x00; // portA as output
-  TRISA2 = 1; // except RA2
+  TRISA = 0x05; // portA as output, except RA0,RA2
+  //  TRISA = 0x00; // portA as output
+  //  TRISA0 = 1; // except RA0
+  //  TRISA2 = 1; // except RA2
   TRISC = 0x00; // portC as output
+
 
   GIE = 0; // disable global interrupts
 
   // setup timer0
   TMR0 = TIMER_START;
-  T0CS = 0; // timer clock source to internal clock,
+  OPTION_REG = 0x01;
+  //nRAPU = 0; // enable weak pullups
+  //  T0CS = 0; // timer clock source to internal clock,
   // internal ticks (Fosc/4) = 1 MHz
-  PSA = 0; // assign prescaler to timer0
-  PS0 = 1;
-  PS1 = 0;
-  PS2 = 0; // prescaler to 4 = 1,000,000 / 4 = 250,000 Hz
+  //  PSA = 0; // assign prescaler to timer0
+  //  PS0 = 1;
+  //  PS1 = 0;
+  //  PS2 = 0; // prescaler to 4 = 1,000,000 / 4 = 250,000 Hz
+
+  WPUA = 0x01; // enable pullup for RA0
 
   T0IF = 0; // clear timer0 overflow flag
   T0IE = 1; // enable timer0 overflow interrupt
