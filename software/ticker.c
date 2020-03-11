@@ -284,7 +284,7 @@ static void show_rotating_led(void)
   }
 }
 
-static __interrupt() void isr_int(void)
+static void isr_int(void) interrupt(0)
 {
   // reinitialize timer
   TMR0 = TIMER_START; // writing to TMR0 clears the prescaler counter
